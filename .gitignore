@@ -1,0 +1,16 @@
+# Файл манифеста Google Apps Script
+appsscript.json
+
+# Локальные настройки clasp
+.clasp.json
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Зависимости Node.js (если используются)
+node_modules/
+
+# Логи и временные файлы
+*.log
+tmp/
