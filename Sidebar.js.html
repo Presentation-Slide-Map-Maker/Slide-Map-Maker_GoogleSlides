@@ -1,0 +1,257 @@
+<script>
+  let selectedSlides = new Set();
+  let allSlides = [];
+  
+  let loadingOverlayElement, emptyStateElement, slidesContainerElement;
+  let selectedCountElement, createBtnElement, navigationBtnElement;
+  let refreshBtnElement, selectAllBtnElement, deselectAllBtnElement;
+  let loadingTextElement;
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    loadingOverlayElement = document.getElementById('loadingOverlay');
+    loadingTextElement = document.getElementById('loadingText');
+    emptyStateElement = document.getElementById('emptyState');
+    slidesContainerElement = document.getElementById('slidesContainer');
+    selectedCountElement = document.getElementById('selectedCount');
+    createBtnElement = document.getElementById('createBtn');
+    refreshBtnElement = document.getElementById('refreshBtn');
+    selectAllBtnElement = document.getElementById('selectAllBtn');
+    deselectAllBtnElement = document.getElementById('deselectAllBtn');
+    navigationBtnElement = document.getElementById('navigationBtn');
+    
+    loadSlidesList();
+  });
+  
+  function showLoading(show, text) {
+    if (!loadingOverlayElement) return;
+    if (show) {
+      if (text) loadingTextElement.textContent = text;
+      loadingOverlayElement.classList.add('active');
+    } else {
+      loadingOverlayElement.classList.remove('active');
+    }
+  }
+  
+  function showEmptyState(message) {
+    if (!emptyStateElement) return;
+    emptyStateElement.textContent = message || '<?= getText("sidebar_empty_state") ?>';
+    emptyStateElement.classList.remove('hidden');
+  }
+  
+  function hideEmptyState() {
+    if (!emptyStateElement) return;
+    emptyStateElement.classList.add('hidden');
+  }
+  
+  function updateSelectedCount() {
+    if (!selectedCountElement || !createBtnElement) return;
+    const count = selectedSlides.size;
+    selectedCountElement.textContent = `<?= getText("sidebar_selected") ?>${count}`;
+    createBtnElement.disabled = count === 0;
+  }
+  
+  function loadSlidesList() {
+    setControlsEnabled(false);
+    showLoading(true, '<?= getText("sidebar_loading_slides") ?>');
+    hideEmptyState();
+    clearSlidesContainer();
+    allSlides = [];
+    
+    google.script.run
+      .withSuccessHandler(function(slidesInfo) {
+        if (!slidesInfo || slidesInfo.length === 0) {
+          showEmptyState('<?= getText("sidebar_empty_state") ?>');
+          showLoading(false);
+          setControlsEnabled(true);
+          return;
+        }
+        allSlides = slidesInfo;
+        loadThumbnailsSequentially(0);
+      })
+      .withFailureHandler(function(error) {
+        showEmptyState('Error loading slides');
+        showLoading(false);
+        setControlsEnabled(true);
+      })
+      .getSlideBasicInfo();
+  }
+  
+  function loadThumbnailsSequentially(index) {
+    if (index >= allSlides.length) {
+      renderSlides(allSlides);
+      showLoading(false);
+      setControlsEnabled(true);
+      return;
+    }
+    
+    let progressText = '<?= getText("sidebar_loading_progress") ?>';
+    progressText = progressText.replace('%s', index + 1).replace('%s', allSlides.length);
+    showLoading(true, progressText);
+    
+    const slideId = allSlides[index].id;
+    
+    google.script.run
+      .withSuccessHandler(function(thumbnailUrl) {
+        allSlides[index].thumbnail = thumbnailUrl || 'https://via.placeholder.com/80x45?text=No+Preview';
+        loadThumbnailsSequentially(index + 1);
+      })
+      .withFailureHandler(function() {
+        allSlides[index].thumbnail = 'https://via.placeholder.com/80x45?text=Error';
+        loadThumbnailsSequentially(index + 1);
+      })
+      .getSlideThumbnailById(slideId);
+  }
+  
+  function clearSlidesContainer() {
+    if (!slidesContainerElement) return;
+    const slideItems = slidesContainerElement.querySelectorAll('.slide-item');
+    slideItems.forEach(item => item.remove());
+    hideEmptyState();
+  }
+  
+  function renderSlides(slides) {
+    if (!slidesContainerElement) return;
+    clearSlidesContainer();
+    if (slides.length === 0) {
+      showEmptyState('<?= getText("sidebar_empty_state") ?>');
+      return;
+    }
+    slides.forEach(slide => {
+      const slideElement = createSlideElement(slide);
+      slidesContainerElement.appendChild(slideElement);
+    });
+    updateSelectedCount();
+  }
+  
+  function createSlideElement(slide) {
+    const div = document.createElement("div");
+    div.className = "slide-item";
+    div.dataset.index = slide.index;
+    
+    if (selectedSlides.has(slide.index)) div.classList.add('selected');
+    
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "slide-checkbox";
+    checkbox.checked = selectedSlides.has(slide.index);
+    checkbox.value = slide.index;
+    checkbox.onchange = (e) => {
+      handleSlideSelection(e.target.value, e.target.checked, div);
+    };
+    
+    const img = document.createElement("img");
+    img.className = "slide-thumbnail";
+    img.src = slide.thumbnail;
+    img.alt = `Slide ${slide.number}: ${slide.title}`;
+    img.onerror = function() {
+      this.src = 'https://via.placeholder.com/80x45?text=No+Preview';
+    };
+    
+    const infoDiv = document.createElement("div");
+    infoDiv.className = "slide-info";
+    
+    const numberSpan = document.createElement("span");
+    numberSpan.className = "slide-number";
+    numberSpan.textContent = slide.number + ".";
+    
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "slide-title";
+    titleSpan.textContent = slide.title;
+    
+    infoDiv.appendChild(numberSpan);
+    infoDiv.appendChild(titleSpan);
+    
+    div.appendChild(checkbox);
+    div.appendChild(img);
+    div.appendChild(infoDiv);
+    
+    return div;
+  }
+  
+  function handleSlideSelection(index, isChecked, element) {
+    const slideIndex = parseInt(index);
+    if (isChecked) {
+      selectedSlides.add(slideIndex);
+      if (element) element.classList.add('selected');
+    } else {
+      selectedSlides.delete(slideIndex);
+      if (element) element.classList.remove('selected');
+    }
+    updateSelectedCount();
+  }
+  
+  function selectAllSlides() {
+    selectedSlides = new Set(allSlides.map(slide => slide.index));
+    renderSlides(allSlides);
+  }
+  
+  function deselectAllSlides() {
+    selectedSlides.clear();
+    renderSlides(allSlides);
+  }
+  
+  function createContentsSlide() {
+    if (selectedSlides.size === 0) return;
+    
+    const selectedIndices = Array.from(selectedSlides).sort((a, b) => a - b);
+    const originalText = createBtnElement.textContent;
+    
+    createBtnElement.disabled = true;
+    createBtnElement.textContent = '<?= getText("sidebar_creating") ?>';
+    setControlsEnabled(false);
+    
+    showLoading(true, '<?= getText("sidebar_creating") ?>');
+    
+    google.script.run
+      .withSuccessHandler(function() {
+        showLoading(false);
+        selectedSlides.clear();
+        renderSlides(allSlides);
+        createBtnElement.textContent = originalText;
+        setControlsEnabled(true);
+      })
+      .withFailureHandler(function(error) {
+        showLoading(false);
+        alert('Error: ' + error.message);
+        createBtnElement.disabled = false;
+        createBtnElement.textContent = originalText;
+        setControlsEnabled(true);
+      })
+      .createContentsSlide(selectedIndices);
+  }
+
+  function createNavigation() {
+    const originalText = navigationBtnElement.textContent;
+    navigationBtnElement.disabled = true;
+    navigationBtnElement.textContent = '<?= getText("sidebar_creating") ?>';
+    setControlsEnabled(false);
+    
+    showLoading(true, '<?= getText("sidebar_creating") ?>');
+    
+    google.script.run
+      .withSuccessHandler(function() {
+        showLoading(false);
+        navigationBtnElement.textContent = originalText;
+        setControlsEnabled(true);
+      })
+      .withFailureHandler(function(error) {
+        showLoading(false);
+        alert('Error: ' + error.message);
+        navigationBtnElement.disabled = false;
+        navigationBtnElement.textContent = originalText;
+        setControlsEnabled(true);
+      })
+      .addNavigationToSlides(null);
+  }
+  
+  function setControlsEnabled(enabled) {
+    if (!refreshBtnElement || !selectAllBtnElement || !deselectAllBtnElement || !navigationBtnElement) return;
+    const buttons = [refreshBtnElement, selectAllBtnElement, deselectAllBtnElement, createBtnElement, navigationBtnElement];
+    buttons.forEach(btn => {
+      if (btn === createBtnElement && !enabled) return;
+      btn.disabled = !enabled;
+      btn.style.opacity = enabled ? '1' : '0.6';
+      btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    });
+  }
+</script>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('Sidebar.css'); ?>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h3><?= getText("sidebar_select_slides") ?></h3>
+        <span id="selectedCount" class="selected-count"><?= getText("sidebar_selected") ?>0</span>
+      </div>
+      
+      <div class="controls">
+        <button id="refreshBtn" class="control-btn refresh" onclick="loadSlidesList()">
+          <?= getText("sidebar_refresh") ?>
+        </button>
+        <button id="selectAllBtn" class="control-btn" onclick="selectAllSlides()">
+          <?= getText("sidebar_select_all") ?>
+        </button>
+        <button id="deselectAllBtn" class="control-btn" onclick="deselectAllSlides()">
+          <?= getText("sidebar_deselect_all") ?>
+        </button>
+      </div>
+      
+      <div class="slides-section">
+        <div id="loadingOverlay" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <div id="loadingText" class="loading-text"><?= getText("sidebar_loading_slides") ?></div>
+        </div>
+        
+        <div id="slidesContainer" class="slides-container">
+          <div id="emptyState" class="empty-state hidden">
+            <?= getText("sidebar_empty_state") ?>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <button id="createBtn" onclick="createContentsSlide()" disabled>
+          <?= getText("sidebar_create_toc") ?>
+        </button>
+        <button id="navigationBtn" class="nav-btn" onclick="createNavigation()">
+          <?= getText("sidebar_create_nav") ?>
+        </button>
+      </div>
+    </div>
+
+    <?!= include('Sidebar.js'); ?>
+  </body>
+</html>
