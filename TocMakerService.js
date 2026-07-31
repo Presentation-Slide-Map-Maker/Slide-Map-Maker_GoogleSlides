@@ -291,7 +291,7 @@ function quickCreate() {
     for (let i = 1; i < slides.length; i++) selectedSlideIndices.push(i);
     
     const response = ui.alert(getText("quick_create_title"), getText("quick_create_prompt"), ui.ButtonSet.OK_CANCEL);
-    if (response == ui.ButtonSet.CANCEL) return;
+    if (response == ui.Button.CANCEL) return;
     
     const contentsSlide = createContentsSlide(selectedSlideIndices);
     if (contentsSlide) addNavigationToSlides(contentsSlide);
